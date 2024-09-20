@@ -99,8 +99,19 @@ jobs:
           SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
           GITHUB_USER: ${{ github.actor }}
         run: |
+          # Navigate to the target repository directory
+          cd target-repo
+
+          # Ensure the current directory is a git repository
+          if [ ! -d ".git" ]; then
+            echo "Error: target-repo is not a git repository."
+            exit 1
+          fi
+
+          # Create a pull request
           gh pr create \
             --base "${BASE_BRANCH}" \
             --head "${HEAD_BRANCH}" \
             --title "Sync updates from ${REPO_TEMPLATE}" \
             --body "This pull request synchronizes changes from the ${REPO_TEMPLATE} template repository."
+
