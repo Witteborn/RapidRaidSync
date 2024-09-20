@@ -13,8 +13,6 @@ Automate your RAID 0 configuration and daily backups with ease.
 - [Security Considerations](#security-considerations)
 - [Important Notes](#important-notes)
 - [License](#license)
-- [Acknowledgments](#acknowledgments)
-
 ---
 
 ## Introduction
