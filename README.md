@@ -80,7 +80,7 @@ This script is ideal for users who want to:
    Clone the repository or download the `rapidraidsync.sh` script directly:
 
    ```bash
-   wget https://github.com/Witteborn/RapidRaidSync/rapidraidsync.sh
+   wget https://raw.githubusercontent.com/Witteborn/RapidRaidSync/refs/heads/master/rapidraidsync.sh
    ```
 
 2. **Make the Script Executable**
