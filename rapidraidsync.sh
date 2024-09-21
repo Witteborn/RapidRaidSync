@@ -19,9 +19,6 @@ if ! flock -n 200; then
     exit 1
 fi
 
-# Optional: Ensure the lock is released on script exit
-trap 'flock -u 200' EXIT
-
 # Inform the user about the script's purpose
 echo "=========================================================="
 echo "Welcome to RapidRaidSync - RAID and Backup Automation Tool"
@@ -137,7 +134,7 @@ fi
 # Step 5: Configure RAID 0 Array
 # ==========================================================
 echo -e "\nStopping any existing RAID arrays on /dev/md0 (if any)..."
-sudo mdadm --stop /dev/md0 2>/dev/null
+sudo mdadm --stop /dev/md0 2>/dev/null || true
 
 echo "Zeroing superblocks on the selected drives..."
 for DEVICE in $SELECTED_DRIVES; do
@@ -168,7 +165,7 @@ sudo mount /dev/md0 /mnt/backup
 
 # Save mdadm configuration to mdadm.conf
 echo "Saving RAID configuration to /etc/mdadm/mdadm.conf..."
-sudo mdadm --detail --scan | sudo tee -a /etc/mdadm/mdadm.conf
+sudo bash -c "mdadm --detail --scan > /etc/mdadm/mdadm.conf"
 
 # Update initramfs to include the new mdadm configuration
 echo "Updating initramfs to include new RAID configuration..."
@@ -180,7 +177,12 @@ UUID=$(sudo blkid -s UUID -o value /dev/md0)
 
 # Add entry to /etc/fstab for automatic mounting on startup
 echo "Adding entry to /etc/fstab for automatic mounting..."
-echo "UUID=$UUID /mnt/backup ext4 defaults,nofail,discard 0 0" | sudo tee -a /etc/fstab
+# Check if the fstab entry already exists
+if ! grep -qs "UUID=$UUID" /etc/fstab; then
+    echo "UUID=$UUID /mnt/backup ext4 defaults,nofail,discard 0 0" | sudo tee -a /etc/fstab
+else
+    echo "/etc/fstab already contains an entry for UUID=$UUID. Skipping."
+fi
 
 # Test mounting
 echo "Testing mounting of the RAID array..."
