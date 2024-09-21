@@ -89,7 +89,7 @@ This script is ideal for users who want to:
 2. **Make the Script Executable**
 
    ```bash
-   chmod +x rapidraidsync.sh
+   sudo chmod +x rapidraidsync.sh
    ```
 
 3. **Run the Script**
