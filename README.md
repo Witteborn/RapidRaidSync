@@ -17,8 +17,7 @@ Automate your RAID 0 configuration and daily backups with ease.
 
 ## Introduction
 
-**RapidRaidSync** is a powerful bash script designed to simplify and automate the process of configuring a RAID 0 array and setting up daily backups from a remote server using `rsync`. Whether you're a tech enthusiast or an IT professional, this tool enables you to efficiently manage your local backups, ensuring your data is safe and accessible.
-
+**RapidRaidSync** is a powerful bash script designed to simplify and automate the process of configuring a RAID 0 array and setting up daily backups from a remote server using `lftp`. Whether you're a tech enthusiast or an IT professional, this tool enables you to efficiently manage your local backups, ensuring your data is safe and accessible.
 
 ### **Example Scenario**
 
@@ -28,6 +27,7 @@ With **RapidRaidSync**, you:
 
 - **Set Up a Local Backup Server**: Use a spare server with multiple drives to create a high-speed RAID 0 array.
 - **Automate Backups**: Schedule daily backups from your cloud server to your local server.
+- **Prevent Duplicate Instances**: Ensure that only one backup process runs at a time, avoiding conflicts and resource exhaustion.
 - **Maintain Redundancy**: Ensure that even if your cloud server is inaccessible, you have all your data locally.
 
 This setup combines the convenience of cloud storage with the security of local backups.
@@ -49,6 +49,7 @@ This script is ideal for users who want to:
 - **Enhance Data Security**: Protect against data loss in case the cloud server experiences downtime or data corruption.
 - **Improve Backup Efficiency**: Automate the backup process without manual intervention.
 - **Optimize Storage Performance**: Leverage RAID 0 to maximize read/write speeds for large backup operations.
+- **Prevent Backup Conflicts**: Ensure that backups do not overlap or interfere with each other, especially during long-running operations.
 
 ---
 
@@ -57,9 +58,11 @@ This script is ideal for users who want to:
 - **Automated RAID 0 Configuration**: Quickly set up a RAID 0 array with your chosen drives to maximize performance.
 - **Flexible Drive Selection**: Easily select which drives to include in the RAID array, with a default option to use all available drives except the boot drive.
 - **Filesystem Creation and Mounting**: Automatically formats the RAID array with `ext4` and mounts it at `/mnt/backup`.
-- **Daily Automated Backups**: Creates a backup script that synchronizes data from a remote server using `rsync` and schedules it to run daily at 3 AM.
+- **Daily Automated Backups**: Creates a backup script that synchronizes data from a remote server using `lftp` and schedules it to run daily at 3 AM.
+- **Instance Locking**: Utilizes `flock` to ensure that only one instance of the setup or backup script runs at a time, preventing conflicts and resource issues.
 - **User-Friendly Interface**: Interactive prompts guide you through each step, making it accessible even for users with minimal experience.
 - **Detailed Feedback**: Informative messages keep you updated on the script's progress, ensuring transparency and ease of use.
+- **Persistent RAID Configuration**: Ensures that the RAID array is correctly recognized and mounted after system reboots.
 
 ---
 
@@ -89,6 +92,14 @@ This script is ideal for users who want to:
    chmod +x rapidraidsync.sh
    ```
 
+3. **Run the Script**
+
+   Execute the script with `sudo` to begin the setup process:
+
+   ```bash
+   sudo ./rapidraidsync.sh
+   ```
+
 ---
 
 ## Usage
@@ -108,7 +119,7 @@ sudo ./rapidraidsync.sh
 
 2. **Installation of Required Applications**
 
-   - The script updates the package list and installs `rsync`, `mdadm`, and `sshpass`.
+   - The script updates the package list and installs `lftp` and `mdadm`.
 
 3. **Drive Detection**
 
@@ -133,19 +144,24 @@ sudo ./rapidraidsync.sh
    - Creates a RAID 0 array with the selected drives.
    - Formats the RAID array with the `ext4` filesystem.
    - Mounts the RAID array to `/mnt/backup` and updates `/etc/fstab` for automatic mounting on startup.
+   - Ensures the `mdadm` service is enabled and started to maintain RAID configuration after reboots.
 
 7. **Backup Script Setup**
 
-   - Prompts you to enter the `rsync` source in the format `user@remote_host:/path/to/source`.
-   - Prompts for the SFTP password (input will be hidden).
-   - Creates the backup script at `/usr/local/bin/backup_rsync.sh`.
+   - Prompts you to enter the `lftp` SFTP credentials:
+     - SFTP Username
+     - SFTP Server Address
+     - SFTP Password (input will be hidden)
+     - Remote Source Directory to back up
+   - Creates the backup script at `/usr/local/bin/backup_lftp.sh` with instance locking to prevent multiple runs.
    - Schedules the backup script to run daily at 3 AM via cron.
 
 8. **Completion**
 
-   - Displays a summary of the actions taken and where you can find the backup script.
+   - Displays a summary of the actions taken and where you can find the backup script and logs.
+   - Confirms that backups will run daily at 3 AM.
 
-
+---
 
 ## Security Considerations
 
@@ -165,12 +181,20 @@ sudo ./rapidraidsync.sh
          ```bash
          ssh-copy-id user@remote_host
          ```
-      3. Modify the backup script to use SSH keys and remove `sshpass`:
+      3. Modify the backup script to use SSH keys and remove `lftp` password usage:
          ```bash
-         rsync --delete -azP -e ssh $RSYNC_SOURCE $RSYNC_DESTINATION
+         lftp -u "user" sftp://remote_host <<EOF_LFTP
+         mirror --delete --continue --parallel=4 --verbose "/path/to/source" "/mnt/backup"
+         bye
+         EOF_LFTP
          ```
   - **Regular Audits**: Periodically review file permissions and access logs.
   - **Encryption**: If storing passwords is necessary, consider using an encrypted vault or environment variables with restricted access.
+
+**Script Permissions**
+
+- **Backup Script**: `/usr/local/bin/backup_lftp.sh` is set to `700` to ensure only the root user can execute it.
+- **Log File**: `/var/log/rapidraidsync_backup.log` is set to `600` to restrict access.
 
 ---
 
@@ -184,12 +208,18 @@ sudo ./rapidraidsync.sh
   - **No Redundancy**: RAID 0 offers increased performance but **no fault tolerance**. If any drive fails, all data in the array is lost.
   - **Use Case Suitability**: Ideal for scenarios where performance is critical and data loss is acceptable or mitigated by backups.
 
+- **Backup Script Locking**:
+  - The backup script uses `flock` to ensure that only one instance runs at a time, preventing overlapping backups and potential resource issues.
+
+- **RAID Persistence After Reboot**:
+  - The script ensures that the RAID array is correctly saved in `/etc/mdadm/mdadm.conf` and that the `mdadm` service is enabled. Additionally, an entry is added to `/etc/fstab` to mount the RAID array at `/mnt/backup` on startup.
+
 - **Testing the Backup Script**:
   - **Manual Execution**: Test the backup script to verify it works correctly:
     ```bash
-    sudo /usr/local/bin/backup_rsync.sh
+    sudo /usr/local/bin/backup_lftp.sh
     ```
-  - **Monitoring**: Check the output for errors and ensure data is properly synchronized.
+  - **Monitoring**: Check the log file at `/var/log/rapidraidsync_backup.log` for any errors and ensure data is properly synchronized.
 
 - **Monitoring and Maintenance**:
   - **RAID Health**: Regularly monitor the RAID array's health using `mdadm`:
@@ -197,6 +227,7 @@ sudo ./rapidraidsync.sh
     sudo mdadm --detail /dev/md0
     ```
   - **Backup Verification**: Periodically verify the integrity and completeness of your backups.
+  - **System Updates**: Keep your system and installed packages updated to ensure compatibility and security.
 
 ---
 
